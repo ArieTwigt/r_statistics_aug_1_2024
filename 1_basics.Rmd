@@ -1,0 +1,316 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  html_notebook: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r}
+ages <- c(10, 20, 30, 40 , 50)
+```
+
+```{r}
+summary(ages)
+```
+
+```{r, echo=FALSE}
+plot(ages, type="l")
+```
+
+## 
+
+# Work with the data set
+
+## Import the data set
+
+```{r, echo=FALSE}
+library(readr)
+data <- read_csv("data/german_data_clean.csv")
+```
+
+```{r}
+summary(data$age_years)
+```
+
+```{r}
+table(data$purpose)
+```
+
+```{r}
+lm(credit_amount ~ age_years, data)
+```
+
+### Show measures of spread
+
+Provide a summary
+
+```{r}
+summary(data$credit_amount)
+```
+
+Visualize the data to detect possible outliers
+
+```{r}
+plot(data$credit_amount)
+```
+
+```{r}
+boxplot(data$credit_amount)
+```
+
+Basic formula of an outlier:
+
+Mean - 2 \* sd
+
+Mean + 2 \* sd
+
+```{r}
+outlier_min <- mean(data$credit_amount) - (2* sd(data$credit_amount))
+outlier_max <- mean(data$credit_amount) + (2* sd(data$credit_amount))
+```
+
+```{r}
+print(outlier_min)
+print(outlier_max)
+```
+
+```{r}
+data$is_outlier <- ifelse(data$credit_amount < outlier_min | data$credit_amount > outlier_max,
+                          "outlier", "regular")
+```
+
+```{r}
+library(ggplot2)
+
+plot_1 <- ggplot(aes(x=age_years, y=credit_amount), data = data)
+plot_1 + geom_point(aes(colour=is_outlier))
+```
+
+```{r}
+mean(data$credit_amount)
+```
+
+```{r}
+summary(data$credit_amount)
+```
+
+### Percentiles
+
+```{r}
+# use the 'quantile' function to calculate percentiles
+quantile(data$credit_amount, 0.95)
+```
+
+```{r}
+
+```
+
+# Bi-variate statistics
+
+### Using the Co-variance
+
+```{r}
+cov(data$age_years, data$credit_amount)
+```
+
+```{r}
+cov(data$duration_months, data$credit_amount)
+```
+
+### Using the Correlation
+
+```{r}
+cor(data$age_years, data$credit_amount)
+```
+
+```{r}
+cor(data$duration_months, data$credit_amount)
+```
+
+Causation research
+
+```{r}
+model_1 <- lm(credit_amount ~ duration_months, data=data)
+
+summary(model_1)
+```
+
+# Binomial distribution
+
+```{r}
+dbinom(6, 10, 0.5)
+```
+
+```{r}
+trials <- 1:10
+
+probabilities <- numeric(0)
+
+
+for (x in trials){
+  prob <- dbinom(x, 10, 0.5)
+  probabilities <- append(probabilities, prob)
+}
+
+probabilities
+```
+
+Create a table to show the cumulative distribution
+
+```{r}
+probs_table <- data.frame(trial = trials,
+                          probability = probabilities,
+                          cumulative_probability = cumsum(probabilities))
+```
+
+```{r}
+
+```
+
+Plot the single probability
+
+```{r, echo=FALSE}
+plot(x = probs_table$trial,
+     y = probs_table$cumulative_probability,
+     type = "l",
+     col = "blue")
+
+lines(x = probs_table$trial,
+      y = probs_table$probability,
+      type = "l",
+      col = "green")
+```
+
+# Normal distribution
+
+## Display the distribution in R
+
+```{r}
+plot(density(data$age_years))
+
+```
+
+```{r}
+random_normal <- rnorm(1000, 35, 8)
+plot(density(random_normal))
+lines(density(data$age_years), col="red")
+```
+
+### Manually calculate a z-score
+
+```{r}
+mean(data$age_years)
+```
+
+```{r}
+(50 - mean(data$age_years)) / sd(data$age_years)
+```
+
+```{r}
+
+(35.546 - mean(data$age_years)) / sd(data$age_years)
+```
+
+```{r, echo=FALSE}
+z_scores_age_years <- numeric(0)
+
+for (x in data$age_years){
+  z_score <- (x - mean(data$age_years)) / sd(data$age_years)
+  z_scores_age_years <- append(z_scores_age_years, z_score)
+}
+
+plot(density(z_scores_age_years))
+```
+
+## Check if the data is normally distributed
+
+**H0:** The data is normally distributed.
+
+**H1:** The data is **not** normally distributed.
+
+```{r}
+shapiro.test(data$age_years)
+```
+
+`p-value` is significantly lower than `0.05`, so this variable is **not** normally distributed.
+
+This means, we cannot choose a parametric.
+
+-   (So not `t-test`, no `anova`, but the **non**-parametric equivalents for these tests).
+
+## First statistical test (2 groups)
+
+Test if the average age of people having a loan for new cars if (significantly) different then people having a loan for used cars.
+
+### Hypotheses
+
+**H0:** The average age of people with loans for used cars is the same.
+
+**H1:** The average age of people with loans for used cars is the **not** same.
+
+### Check for normality of the variable
+
+```{r}
+# filter for only car-related purposes
+data_cars <- data[data$purpose %in% c("car (new)", "car (used)"), ]
+table(data_cars$purpose)
+```
+
+```{r}
+shapiro.test(data_cars$age_years)
+```
+
+The `p-value`, is lower than `0.05`, so the data is not normally distributed. We cannot use a parametric test.
+
+### Decide the confidence level (p-value) for our test
+
+For this research we choose a confidence level of `95%`, which means we have a critical boundary for the p-value of `0.05`
+
+### Decide/execute the test that will be used
+
+Based on the fact that the data is not normally distributed, we use for the alternative for a t-test, which is the Mann-Whitney U test, which is in R the `wilcox.test`
+
+```{r}
+wilcox_result <- wilcox.test(age_years ~ purpose, data = data_cars)
+wilcox_result
+```
+
+```{r}
+wilcox_result$p.value
+```
+
+```{r, echo=FALSE}
+data_car_new <- data_cars[data_cars$purpose == "car (new)",]
+data_car_used <- data_cars[data_cars$purpose == "car (used)",]
+
+plot(data_car_new$age_years, 
+     col="red",
+      main="Ages of new and used cars",
+      sub="Groups mixed",
+      ylab="age",
+      xlab="")
+points(data_car_used$age_years, col="blue")
+```
+
+```{r, echo=FALSE}
+boxplot_cars <- ggplot(aes(x=purpose, y = age_years), data = data_cars)
+boxplot_cars + geom_boxplot(aes(fill=purpose))
+```
+
+### Analyse results of the test
+
+The p-value is `0.9758`, which is larger than `0.05`, so there is not enough evidence to reject the **H0** hypothesis.
+
+### Draw conclusions (about our hypotheses) for our test
+
+The average age between people for loans with used or new cars, is not significantly different.
+
+### What would the t-test
+
+```{r}
+t.test(data_car_used$age_years, 
+       data_car_new$age_years)
+```
