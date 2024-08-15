@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Statistics training"
 output:
   word_document: default
   html_notebook: default
@@ -136,6 +136,20 @@ Causation research
 model_1 <- lm(credit_amount ~ duration_months, data=data)
 
 summary(model_1)
+```
+
+### Kendall's Tau
+
+-   numeric
+
+-   character (nominal)
+
+-   factor (ordinal)
+
+-   boolean
+
+```{r}
+cor.test(as.numeric(factor(data$housing)), as.numeric(factor(data$purpose)), method="kendall")
 ```
 
 # Binomial distribution
@@ -314,3 +328,722 @@ The average age between people for loans with used or new cars, is not significa
 t.test(data_car_used$age_years, 
        data_car_new$age_years)
 ```
+
+# Ggplot
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+plot_1_r <- plot(x = data$age_years,
+                 y = data$credit_amount,
+                 xlab = "Age (in years)",
+                 ylab = "Credit Amount",
+                 main = "Age and credit amounts of loans")
+```
+
+```{r}
+plot_1 <- ggplot(data = data,
+                 aes(x = age_years,
+                     y = credit_amount))
+
+
+plot_1 + geom_point(aes(size = duration_months,
+                        colour = (purpose)))
+```
+
+```{r}
+plot_2 <- ggplot(data = data, 
+                 aes(x=age_years))
+
+plot_2 + 
+  geom_density() +
+  geom_vline(aes(xintercept = mean(age_years)),
+             color = "blue",
+             size = 2,
+             alpha = 0.5)
+  
+```
+
+### Boxplots in ggplot
+
+```{r}
+plot_3 <- ggplot(data = data,
+                 aes(x = purpose,
+                     y = age_years))
+
+plot_3 + 
+  geom_boxplot(aes(fill = personal_status_sex)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle=65, vjust=0.5)) +
+  labs( title = "Overview ages and loans")
+```
+
+## Anova
+
+Check for significant differences between more than 2 groups.
+
+In this case we have 4 groups:
+
+-   Loans for a new car
+
+-   Loans for a used car
+
+-   Loans for repairs
+
+-   Loans for a radio/television
+
+Are these groups **significantly** different **among** each other.
+
+### Create a subset for only loans in these groups
+
+```{r}
+library(dplyr)
+
+selected_groups <- c("car (new)",  "repairs", "radio/television")
+
+data_filtered <- data %>%
+  filter(purpose %in% selected_groups)
+
+```
+
+### Hypotheses
+
+**H0:** There is no difference in age_years, among these groups.
+
+**H1:** There is a difference in age_years, among these groups.
+
+### Check for normality
+
+#### a. Visualize the group
+
+```{r}
+plot_4 <- ggplot(data = data_filtered,
+                 aes(x = age_years))
+
+plot_4 + geom_density()
+```
+
+```{r}
+boxplot_groups <- ggplot(data = data_filtered,
+                         aes(x = purpose,
+                             y = age_years))
+
+boxplot_groups + geom_boxplot()
+```
+
+#### b. Apply Shapiro-Wilk test
+
+```{r}
+shapiro.test(data_filtered$age_years)
+```
+
+The p-value is lower than 0.05, so **not** normally distributed.
+
+### Determine the test we will use (based on Normality)
+
+We are using the ANOVA anyway...
+
+### Set our Confidence interval
+
+We use a 95% confidence level. 0.05
+
+### Execute the test
+
+```{r}
+anova_result <- aov(age_years ~ purpose, data = data_filtered)
+summary(anova_result)
+```
+
+### Analyse results
+
+**p-value** `0.0507` \> our boundary `0.05`. Is not lower than 0.05.
+
+### Draw conclusions: Reject H0?
+
+We cannot reject the **H0** Hypothesis.
+
+### Post-hoc analysis: Which groups differ the most among each other
+
+#### Tukey -test
+
+```{r}
+tuckey_result <- TukeyHSD(anova_result)
+tuckey_result
+```
+
+### 
+
+## Kruskal-Wallis test
+
+## Anova
+
+Check for significant differences between more than 2 groups.
+
+In this case we have 3 groups:
+
+-   Loans for a new car
+
+-   Loans for repairs
+
+-   Loans for a radio/television
+
+Are these groups **significantly** different **among** each other.
+
+### Hypotheses
+
+**H0:** There is no difference in age_years, among these groups.
+
+**H1:** There is a difference in age_years, among these groups.
+
+### Check for normality
+
+```{r}
+shapiro.test(data_filtered$age_years)
+```
+
+### Set confidence-level
+
+95%
+
+### Execute the test
+
+```{r}
+kruskal_test_result <- kruskal.test(age_years ~ purpose, data_filtered)
+kruskal_test_result
+```
+
+### Analyze the results
+
+The p-value is `0.02108`, we can reject the **H0.**
+
+### Conclusion: 
+
+There is a significant difference in ages between thees three **groups.**
+
+### Post-hoc
+
+Post-hoc for Kruskal-Wallis, is **Dunn**-test.
+
+```{r}
+library(dunn.test)
+
+dunn_test_result <- dunn.test(data_filtered$age_years,
+                              data_filtered$purpose)
+
+dunn_test_result
+```
+
+## Chi-squared-test
+
+### See the values of `purpose` and `housing`
+
+```{r}
+#optional
+#data <- data %>%
+#  filter(!housing == "own")
+```
+
+```{r}
+table(data$housing)
+```
+
+```{r}
+table(data$purpose)
+```
+
+Create a contingency table
+
+```{r}
+contig_table_purpose_housing <- table(data$housing, data$purpose)
+contig_table_purpose_housing
+```
+
+Check the relative values
+
+```{r}
+contig_table_purpose_housing_relative <- (contig_table_purpose_housing / sum(contig_table_purpose_housing) * 100)
+
+contig_table_purpose_housing_relative
+
+df_contig_table_purpose_housing_relative <- as.data.frame(contig_table_purpose_housing_relative)
+```
+
+Visualize in ggplot
+
+```{r}
+plot_contig_table <- ggplot(data = df_contig_table_purpose_housing_relative,
+                            aes(x=Var1,
+                                y=Var2,
+                                fill=Freq))
+
+plot_contig_table + 
+  geom_tile() +
+  scale_fill_gradient(low = "yellow", high="red")
+```
+
+Chi-squared test will summarize the relationship between `housing` and `purpose` as a whole.
+
+## Chi-squared test
+
+### Hypotheses
+
+**H0:** The two groups are not independent from each other
+
+**H1:** The two groups are dependent from each other
+
+### Confidence level
+
+Our confidence level is set to 95%
+
+### Execute the test
+
+```{r}
+contig_table_purpose_housing <- table(data$housing, data$purpose)
+contig_table_purpose_housing
+```
+
+```{r}
+chisq_result <- chisq.test(contig_table_purpose_housing)
+chisq_result
+```
+
+### Analyzing the results
+
+The **p-value** is `-2.861e-11` which is way lower than `0.05`
+
+### Conclusion/hypotheses
+
+We can reject the **H0** hypotheses. The two groups are dependent from each other.
+
+# Poisson distribution
+
+## Import the data set
+
+```{r}
+data_extra <- read_csv("data/german_data_extra.csv")
+```
+
+## Analysis of data set
+
+### Aggregate the dates
+
+```{r}
+loans_per_day <- data_extra %>%
+  group_by(date) %>%
+  summarise(Count = n())
+  
+```
+
+```{r}
+loans_per_day
+```
+
+### Summary of the `Count` variable
+
+```{r}
+summary(loans_per_day$Count)
+```
+
+To calculate the **lambda**, you need to have the average amount of the column you want to investigate (Count).
+
+```{r}
+lambda_loans <- mean(loans_per_day$Count)
+lambda_loans
+```
+
+Create probabilities for loans in a day
+
+```{r}
+poisson_probs_loans <- dpois(loans_per_day$Count, lambda_loans)
+```
+
+# Calculate probabilities for each bin using the Poisson distribution
+
+loans_per_day_summary\$Probability \<- with(loans_per_day_summary, sapply(Bin, function(b) { bin_range \<- as.numeric(unlist(strsplit(as.character(b), '-'))) if (length(bin_range) \< 2) { bin_range[2] \<- Inf } ppois(bin_range[2], lambda_loans) - ppois(bin_range[1] - 1, lambda_loans) }))
+
+### 
+
+# Calculate probabilities for each bin using the Poisson distribution
+
+```{r}
+loans_per_day_summary$Probability <- with(loans_per_day_summary, sapply(Bin, function(b) { bin_range <- as.numeric(unlist(strsplit(as.character(b), '-'))) if (length(bin_range) < 2) { bin_range[2] <- Inf } ppois(bin_range[2], lambda_loans) - ppois(bin_range[1] - 1, lambda_loans) }))
+```
+
+### Create a table of the seperate probabilities
+
+```{r}
+poission_data_loans <- data.frame(
+  'Number_of_loans' = 176:278,
+  'Probability' = poisson_probs_loans
+)
+
+poission_data_loans
+```
+
+### Plot the distribution
+
+```{r}
+plot_poission_loans <- ggplot(poission_data_loans, 
+                              aes(x = Number_of_loans,
+                                  y= Probability))
+
+plot_poission_loans + geom_bar(stat = "identity")
+```
+
+### Binned version
+
+```{r}
+# Define the new bins
+bins <- c(-Inf, 50, 180, 200, 240, 260, 280, Inf)
+labels <- c('0-50', '150-180', '180-200', '220-240', '240-260', '260-280', '280+')
+```
+
+```{r}
+loans_per_day$Bin <- cut(loans_per_day$Count, breaks = bins, labels = labels, right = FALSE)
+
+loans_per_day
+```
+
+```{r}
+# Calculate the count of days in each bin
+loans_per_day_summary <- loans_per_day %>%
+  group_by(Bin) %>%
+  summarise(Days = n())
+
+loans_per_day_summary
+```
+
+```{r}
+lambda_loans <- mean(loans_per_day$Count)
+```
+
+```{r}
+# Calculate probabilities for each bin using the Poisson distribution
+loans_per_day_summary$Probability <- with(loans_per_day_summary, sapply(Bin, function(b) {
+  bin_range <- as.numeric(unlist(strsplit(as.character(b), '-')))
+  if (length(bin_range) < 2) {
+    bin_range[2] <- Inf
+  }
+  ppois(bin_range[2], lambda_loans) - ppois(bin_range[1] - 1, lambda_loans)
+}))
+```
+
+```{r}
+loans_per_day_summary
+```
+
+```{r}
+# Plot using ggplot2
+ggplot(loans_per_day_summary, aes(x = Bin, y = Probability)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Poisson Distribution of New Loans Per Day (Binned)",
+       x = "Number of New Loans (Binned)",
+       y = "Probability") +
+  theme_minimal()
+
+```
+
+# Linear Regression
+
+## One Y and One X
+
+```{r}
+model_1 <- lm(credit_amount ~ age_years, data=data)
+model_1
+```
+
+### Generate predictions
+
+Y = 1927.33
+
+```{r}
+50 * 52.58 + 1927.33
+```
+
+Predict a model in R
+
+```{r}
+predict(model_1, newdata = list(age_years = 50))
+```
+
+### Check out the quality, accuracy of the prediction model
+
+```{r}
+summary(model_1)
+```
+
+## Linear model with multiple variables
+
+### Add duration
+
+```{r}
+model_2 <- lm(credit_amount ~ age_years + duration_months, data = data )
+summary(model_2)
+```
+
+### 
+
+### Make a prediction
+
+40 years old
+
+30 months duration
+
+#### Manually
+
+```{r}
+-534.46 + (30.31 * 40) + (145.74 * 30)
+```
+
+#### With the `predict()` function
+
+```{r}
+predict(model_2, newdata = list(age_years = 40, duration_months = 30))
+```
+
+### Using dummy variables for prediction models with categorical variables
+
+```{r}
+model_3 <- lm(credit_amount ~ age_years + duration_months + job, data = data)
+summary(model_3)
+```
+
+### Prediction with dummy-variables
+
+-   Age: 40
+
+-   Duration: 30
+
+-   Job: `"unskilled - resident"`
+
+#### Manually
+
+First:
+
+```{r}
+1606.97 + (18.48 * 40) + (138.96 * 30) + -2332.33
+```
+
+Second:
+
+```{r}
+1606.97 + (18.48 * 40) + (138.96 * 30) + 0
+```
+
+#### With the `predict()` function
+
+```{r}
+predict(model_3, newdata=list(age_years=40,
+                              duration_months=30,
+                              job="management/ self-employed/highly qualified employee/ officer"))
+```
+
+## Linear model trained with all available variables
+
+```{r}
+model_4 <- lm(age_years ~ . , data=data)
+summary(model_4)
+```
+
+## Additional background information: Find relationship between `purpose` and `credit_amount`
+
+```{r}
+plot_purpose_credit_amount <- ggplot(data = data,
+                                     aes(x = purpose,
+                                         y = credit_amount))
+
+plot_purpose_credit_amount + geom_dotplot(binaxis='y', 
+                                          stackdir='center',
+                                          dotsize=0.3)
+```
+
+### Feature engineering: Creating own/calculated columns/variable (smart)
+
+```{r}
+data$car_loan <- ifelse(data$purpose %in% c("car (new)", "car (used)"), "yes", "no")
+```
+
+Create a new model with the new variabele
+
+```{r}
+model_5 <- lm(credit_amount ~ duration_months + job + car_loan, data = data)
+summary(model_5)
+```
+
+### Look for relationships between `age_years`, `housing` and `credit_amount`
+
+```{r}
+plot_age_years_housing <- ggplot(data = data,
+                                 aes(x = age_years,
+                                     y = credit_amount))
+
+plot_age_years_housing + geom_point(aes(colour=housing))
+```
+
+```{r}
+data$rent_house_low_age <- ifelse(data$housing == "rent" &
+                                 data$age_years < 40,
+                                 "yes",
+                                 "no")
+```
+
+```{r}
+model_6 <- lm(credit_amount ~ duration_months + job + car_loan + rent_house_low_age,
+              data = data)
+
+summary(model_6)
+```
+
+## Extra: Machine Learning
+
+Create the input data frame for new predictions
+
+```{r}
+df_new_data <- data.frame(
+  duration_months = data$duration_months,
+  job = data$job,
+  car_loan = data$car_loan
+)
+
+
+```
+
+Generate the predictions
+
+```{r}
+predictions <- predict.lm(model_5, newdata = df_new_data)
+
+# add the predictions next to the real data
+df_preds_actual <- data.frame(
+  prediction = predictions,
+  actual = data$credit_amount
+) %>%
+  mutate(delta = abs(prediction - actual))
+
+
+```
+
+MAE: Mean Absolute error
+
+```{r}
+mean(df_preds_actual$delta)
+```
+
+Percentage
+
+```{r}
+(sum(abs(df_preds_actual$actual - df_preds_actual$prediction) / df_preds_actual$actual)  * 100 ) / nrow(df_preds_actual)
+```
+
+# Logistic Regression 
+
+## One variable
+
+```{r}
+model_7 <- glm(response ~ age_years, 
+               family = "binomial", 
+               data = data)
+
+summary(model_7)
+```
+
+```{r}
+model_7 <- glm(response ~ age_years + duration_months  + car_loan,
+               family = "binomial", 
+               data = data)
+
+summary(model_7)
+```
+
+### Generating predictions
+
+40 years old
+
+duration: 30
+
+car loan is "yes"
+
+```{r}
+-1.05555 + (40 * -0.01902) + (30 * 0.03756) + 0.15910
+```
+
+```{r}
+predict(model_7, newdata = list(age_years=40, 
+                                duration_months=30,
+                                car_loan="yes"),
+            type="response")
+```
+
+```{r}
+predictions <- predict(model_7, newdata = data, type="response")
+head(predictions)
+```
+
+Place the predictions next to response
+
+```{r}
+df_predictions <- data.frame(
+  actual = data$response,
+  prediction_prob = predictions,
+  prediction = ifelse(predictions > 0.5, 1, 0)
+)
+
+head(df_predictions)
+```
+
+### Add TP, FP, TN, FN
+
+```{r}
+df_predictions$pred <- ifelse(df_predictions$actual == 0 & df_predictions$prediction == 0, "TN",
+                         ifelse(df_predictions$actual == 1 & df_predictions$prediction == 1, "TP", 
+                                ifelse(df_predictions$actual == 1 & df_predictions$prediction == 0, "FN", "FP")))
+```
+
+```{r}
+table(df_predictions$pred)
+```
+
+Metrics to judge the model
+
+-   Accuracy
+
+    -   TP + TN / TP + TN + FP + FN
+
+```{r}
+(34 + 675) / sum(table(df_predictions$pred))
+```
+
+```{r}
+table(data$response)
+```
+
+Sensitivity: If the real value is positive, how good is our model able to find it?
+
+-   TP / (TP + FN)
+
+```{r}
+34 / (34 + 266)
+```
+
+Precision: If the model predicts positive, how likely is this right?
+
+-   TP / (TP + FP)
+
+```{r}
+34 / (34 + 25)
+```
+
+```{}
+```
+
+Specificity:
+
+TN / (TN + FP)
+
+```{r}
+675 / (675 + 25)
+```
+
+[https://medium.com/\@saurabhdhandeblog/confusion-matrix-explained-calculating-accuracy-tpr-fpr-tnr-precision-and-prevalence-87557fe8714d](https://medium.com/@saurabhdhandeblog/confusion-matrix-explained-calculating-accuracy-tpr-fpr-tnr-precision-and-prevalence-87557fe8714d){.uri}
